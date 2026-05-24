@@ -10,11 +10,17 @@ interface SliderProps {
   index: number;
 }
 
+interface ConstrainedSlidersProps {
+  labels?: string[];
+  colors?: string[];
+  initialValues?: number[];
+  onTotalChange?: (values: number[]) => void;
+}
 
-const Slider = ({ label, value, onChange, color, index }: SliderProps) => {
+const Slider = ({ label, value, onChange, color }: SliderProps) => {
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseFloat(e.target.value);
     onChange(newValue);
   };
@@ -78,22 +84,13 @@ const Slider = ({ label, value, onChange, color, index }: SliderProps) => {
   );
 };
 
-
-
-interface ConstrainedSlidersProps {
-  labels?: string[];
-  colors?: string[];
-  initialValues?: number[];
-  onTotalChange?: (values: number[]) => void;
-}
-
 const ConstrainedSliders = ({
   labels = ['Comfort', 'Performance', 'Battery', 'Storage'],
   colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b'],
   initialValues = [25, 25, 25, 25],
   onTotalChange,
 }: ConstrainedSlidersProps) => {
-  const [values, setValues] = useState(() => {
+  const [values, setValues] = useState<number[]>(() => {
     const sum = initialValues.reduce((a, b) => a + b, 0);
     if (Math.abs(sum - 100) > 0.01) {
       const scale = 100 / sum;
@@ -108,7 +105,7 @@ const ConstrainedSliders = ({
     }
   }, [values, onTotalChange]);
 
-  const updateValues = useCallback((changedIndex, newValue) => {
+  const updateValues = useCallback((changedIndex: number, newValue: number) => {
     setValues((prevValues) => {
       const oldValue = prevValues[changedIndex];
       const delta = newValue - oldValue;
@@ -116,7 +113,6 @@ const ConstrainedSliders = ({
       if (Math.abs(delta) < 0.01) return prevValues;
 
       const otherIndices = [0, 1, 2, 3].filter((i) => i !== changedIndex);
-
       const perOther = -delta / otherIndices.length;
 
       const newValues = [...prevValues];
@@ -126,6 +122,7 @@ const ConstrainedSliders = ({
         newValues[i] = prevValues[i] + perOther;
       });
 
+      // Handle negatives
       let hasNegative = false;
       for (const i of otherIndices) {
         if (newValues[i] < 0) {
@@ -152,37 +149,23 @@ const ConstrainedSliders = ({
         }
       }
 
+      // Fix sum to 100
       let sum = newValues.reduce((a, b) => a + b, 0);
       const difference = 100 - sum;
 
       if (Math.abs(difference) > 0.001) {
-        newValues[otherIndices[0]] = parseFloat(
-          (newValues[otherIndices[0]] + difference).toFixed(1)
-        );
-
-        sum = newValues.reduce((a, b) => a + b, 0);
-
-        if (Math.abs(sum - 100) > 0.001) {
-          newValues[changedIndex] = parseFloat(
-            (newValues[changedIndex] + (100 - sum)).toFixed(1)
-          );
-        }
+        newValues[otherIndices[0]] += difference;
       }
 
-      const roundedValues = newValues.map((v) => {
-        let rounded = Math.round(v * 10) / 10;
-        rounded = Math.min(100, Math.max(0, rounded));
-        return rounded;
-      });
+      // Round to 1 decimal
+      const roundedValues = newValues.map((v) =>
+        Math.min(100, Math.max(0, Math.round(v * 10) / 10))
+      );
 
+      // Final sum correction
       const finalSum = roundedValues.reduce((a, b) => a + b, 0);
       if (Math.abs(finalSum - 100) > 0.01) {
-        roundedValues[otherIndices[otherIndices.length - 1]] = parseFloat(
-          (
-            roundedValues[otherIndices[otherIndices.length - 1]] +
-            (100 - finalSum)
-          ).toFixed(1)
-        );
+        roundedValues[otherIndices[otherIndices.length - 1]] += 100 - finalSum;
       }
 
       return roundedValues;
@@ -190,7 +173,7 @@ const ConstrainedSliders = ({
   }, []);
 
   const handleSliderChange = useCallback(
-    (index, newValue) => {
+    (index: number, newValue: number) => {
       updateValues(index, newValue);
     },
     [updateValues]
@@ -204,10 +187,10 @@ const ConstrainedSliders = ({
         {values.map((value, index) => (
           <Slider
             key={index}
-            label={labels[index]}
+            label={labels[index] || `Slider ${index + 1}`}
             value={value}
             onChange={(newVal) => handleSliderChange(index, newVal)}
-            color={colors[index]}
+            color={colors[index] || '#3b82f6'}
             index={index}
           />
         ))}
