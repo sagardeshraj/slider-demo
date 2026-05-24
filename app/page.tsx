@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 interface SliderProps {
   label: string;
   value: number;
   onChange: (value: number) => void;
   color: string;
-  index: number;
 }
 
 interface ConstrainedSlidersProps {
@@ -17,12 +16,10 @@ interface ConstrainedSlidersProps {
   onTotalChange?: (values: number[]) => void;
 }
 
+// Slider Component
 const Slider = ({ label, value, onChange, color }: SliderProps) => {
-  const [isDragging, setIsDragging] = useState(false);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseFloat(e.target.value);
-    onChange(newValue);
+    onChange(parseFloat(e.target.value));
   };
 
   return (
@@ -41,10 +38,6 @@ const Slider = ({ label, value, onChange, color }: SliderProps) => {
           step="1"
           value={value}
           onChange={handleChange}
-          onMouseDown={() => setIsDragging(true)}
-          onMouseUp={() => setIsDragging(false)}
-          onTouchStart={() => setIsDragging(true)}
-          onTouchEnd={() => setIsDragging(false)}
           className="w-full h-2 rounded-lg appearance-none cursor-pointer"
           style={{
             background: `linear-gradient(to right, ${color} 0%, ${color} ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`,
@@ -53,9 +46,6 @@ const Slider = ({ label, value, onChange, color }: SliderProps) => {
         <style jsx>{`
           input[type='range'] {
             -webkit-appearance: none;
-          }
-          input[type='range']:focus {
-            outline: none;
           }
           input[type='range']::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -66,9 +56,6 @@ const Slider = ({ label, value, onChange, color }: SliderProps) => {
             cursor: pointer;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
             border: 2px solid white;
-          }
-          input[type='range']::-webkit-slider-thumb:hover {
-            transform: scale(1.15);
           }
           input[type='range']::-moz-range-thumb {
             width: 18px;
@@ -84,6 +71,7 @@ const Slider = ({ label, value, onChange, color }: SliderProps) => {
   );
 };
 
+// Main Component
 const ConstrainedSliders = ({
   labels = ['Comfort', 'Performance', 'Battery', 'Storage'],
   colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b'],
@@ -94,90 +82,70 @@ const ConstrainedSliders = ({
     const sum = initialValues.reduce((a, b) => a + b, 0);
     if (Math.abs(sum - 100) > 0.01) {
       const scale = 100 / sum;
-      return initialValues.map((v) => v * scale);
+      return initialValues.map((v) => Math.round(v * scale * 10) / 10);
     }
     return [...initialValues];
   });
 
   useEffect(() => {
-    if (onTotalChange) {
-      onTotalChange(values);
-    }
+    onTotalChange?.(values);
   }, [values, onTotalChange]);
 
   const updateValues = useCallback((changedIndex: number, newValue: number) => {
-    setValues((prevValues) => {
-      const oldValue = prevValues[changedIndex];
-      const delta = newValue - oldValue;
-
-      if (Math.abs(delta) < 0.01) return prevValues;
-
+    setValues((prev) => {
+      let newValues = [...prev];
+      const delta = newValue - prev[changedIndex];
       const otherIndices = [0, 1, 2, 3].filter((i) => i !== changedIndex);
-      const perOther = -delta / otherIndices.length;
 
-      const newValues = [...prevValues];
       newValues[changedIndex] = newValue;
 
+      // Distribute delta
+      const perOther = -delta / otherIndices.length;
       otherIndices.forEach((i) => {
-        newValues[i] = prevValues[i] + perOther;
+        newValues[i] += perOther;
       });
 
-      // Handle negatives
-      let hasNegative = false;
-      for (const i of otherIndices) {
+      // Prevent negative values
+      let deficit = 0;
+      otherIndices.forEach((i) => {
         if (newValues[i] < 0) {
-          hasNegative = true;
-          break;
+          deficit += -newValues[i];
+          newValues[i] = 0;
         }
-      }
+      });
 
-      if (hasNegative) {
-        let deficit = 0;
-        for (const i of otherIndices) {
-          if (newValues[i] < 0) {
-            deficit += -newValues[i];
-            newValues[i] = 0;
-          }
-        }
-
+      if (deficit > 0) {
         const positiveOthers = otherIndices.filter((i) => newValues[i] > 0);
-        if (positiveOthers.length > 0 && deficit > 0) {
+        if (positiveOthers.length > 0) {
           const perPositive = deficit / positiveOthers.length;
-          for (const i of positiveOthers) {
+          positiveOthers.forEach((i) => {
             newValues[i] = Math.max(0, newValues[i] - perPositive);
-          }
+          });
         }
       }
 
-      // Fix sum to 100
+      // Force sum to 100
       let sum = newValues.reduce((a, b) => a + b, 0);
-      const difference = 100 - sum;
+      let diff = 100 - sum;
 
-      if (Math.abs(difference) > 0.001) {
-        newValues[otherIndices[0]] += difference;
+      if (Math.abs(diff) > 0.001) {
+        newValues[otherIndices[0]] += diff;
       }
 
       // Round to 1 decimal
-      const roundedValues = newValues.map((v) =>
+      newValues = newValues.map((v) =>
         Math.min(100, Math.max(0, Math.round(v * 10) / 10))
       );
 
-      // Final sum correction
-      const finalSum = roundedValues.reduce((a, b) => a + b, 0);
-      if (Math.abs(finalSum - 100) > 0.01) {
-        roundedValues[otherIndices[otherIndices.length - 1]] += 100 - finalSum;
+      // Final correction
+      sum = newValues.reduce((a, b) => a + b, 0);
+      if (Math.abs(sum - 100) > 0.01) {
+        newValues[otherIndices[otherIndices.length - 1]] += 100 - sum;
       }
 
-      return roundedValues;
+      return newValues;
     });
   }, []);
-
-  const handleSliderChange = useCallback(
-    (index: number, newValue: number) => {
-      updateValues(index, newValue);
-    },
-    [updateValues]
-  );
 
   const total = values.reduce((a, b) => a + b, 0);
 
@@ -187,11 +155,10 @@ const ConstrainedSliders = ({
         {values.map((value, index) => (
           <Slider
             key={index}
-            label={labels[index] || `Slider ${index + 1}`}
+            label={labels[index] || `Option ${index + 1}`}
             value={value}
-            onChange={(newVal) => handleSliderChange(index, newVal)}
+            onChange={(newVal) => updateValues(index, newVal)}
             color={colors[index] || '#3b82f6'}
-            index={index}
           />
         ))}
       </div>
@@ -212,4 +179,7 @@ const ConstrainedSliders = ({
   );
 };
 
-export default ConstrainedSliders;
+// ✅ This is what Next.js expects in app/page.tsx
+export default function Page() {
+  return <ConstrainedSliders />;
+}
