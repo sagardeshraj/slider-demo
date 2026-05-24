@@ -74,6 +74,11 @@ const ConstrainedSliders = ({
   colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b'],
   initialValues = [25, 25, 25, 25],
   onTotalChange,
+}: {
+  labels?: string[];
+  colors?: string[];
+  initialValues?: number[];
+  onTotalChange?: (values: number[]) => void; // ← Added ? here
 }) => {
   const [values, setValues] = useState(() => {
     const sum = initialValues.reduce((a, b) => a + b, 0);
