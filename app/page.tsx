@@ -2,7 +2,16 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 
-const Slider = ({ label, value, onChange, color, index }) => {
+interface SliderProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  color: string;
+  index: number;
+}
+
+
+const Slider = ({ label, value, onChange, color, index }: SliderProps) => {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleChange = (e) => {
@@ -69,17 +78,21 @@ const Slider = ({ label, value, onChange, color, index }) => {
   );
 };
 
+
+
+interface ConstrainedSlidersProps {
+  labels?: string[];
+  colors?: string[];
+  initialValues?: number[];
+  onTotalChange?: (values: number[]) => void;
+}
+
 const ConstrainedSliders = ({
   labels = ['Comfort', 'Performance', 'Battery', 'Storage'],
   colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b'],
   initialValues = [25, 25, 25, 25],
   onTotalChange,
-}: {
-  labels?: string[];
-  colors?: string[];
-  initialValues?: number[];
-  onTotalChange?: (values: number[]) => void; // ← Added ? here
-}) => {
+}: ConstrainedSlidersProps) => {
   const [values, setValues] = useState(() => {
     const sum = initialValues.reduce((a, b) => a + b, 0);
     if (Math.abs(sum - 100) > 0.01) {
